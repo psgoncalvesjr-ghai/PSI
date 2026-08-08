@@ -1,37 +1,43 @@
-# Ψ — Perfume e Sabor do Eu
+# Psi — Perfume e Sabor do Eu
 
-Página do quadro. A animação de Fourier desenha a letra; o modo
-"ver sobre o quadro" encaixa a animação em cima do quadro impresso.
+Pagina do quadro. A animacao de Fourier desenha a letra; o modo
+"ver sobre o quadro" encaixa a animacao em cima do quadro impresso.
+
+## Arquivos
+
+    index.html                        a pagina
+    alvo.jpg                          imagem para compilar o reconhecimento
+    alvo.mind                         (voce gera — veja abaixo)
+    three.module.js                   biblioteca 3D
+    mindar-image-three.prod.js        reconhecimento de imagem
+    controller-mGt1s8dJ.js            (carregado pelo anterior)
+    ui-fBadYuor.js                    (carregado pelo anterior)
+    jsm/renderers/CSS3DRenderer.js    (carregado pelo anterior)
+
+As bibliotecas ficam AQUI, nao em servidor de terceiros. Se o serviço que
+as distribui sair do ar daqui a alguns anos, o quadro continua funcionando.
 
 ## Publicar
 
-1. Crie um repositório chamado **`PSI`** — em MAIÚSCULAS.
-   O QR do quadro aponta para `https://psgoncalvesjr-ghai.github.io/PSI/` e o caminho depois da barra
-   diferencia maiúsculas de minúsculas.
+1. Suba tudo na raiz do repositorio `PSI` (o QR do quadro aponta para
+   https://psgoncalvesjr-ghai.github.io/PSI/, e o caminho depois da barra diferencia maiusculas).
+2. Settings -> Pages -> branch `main`, pasta `/ (root)`.
+3. Abra https://psgoncalvesjr-ghai.github.io/PSI/
 
-2. Suba o conteúdo desta pasta na raiz do repositório.
+## Gerar o reconhecimento (alvo.mind)
 
-3. Em Settings → Pages, escolha a branch `main` e a pasta `/ (root)`.
-
-4. Espere uns minutos e abra https://psgoncalvesjr-ghai.github.io/PSI/
-
-## Fazer o "ver sobre o quadro" funcionar
-
-O reconhecimento precisa de um arquivo compilado a partir da imagem do quadro.
-Ele não pode ser gerado aqui porque a ferramenta roda no navegador.
+A ferramenta roda no navegador e nao pode ser executada fora dele.
 
 1. Abra https://hiukim.github.io/mind-ar-js-doc/tools/compile
-2. Envie o arquivo `alvo.jpg` desta pasta.
-3. Clique em *Start* e depois em *Download*.
-4. Renomeie o arquivo baixado para **`alvo.mind`** e coloque nesta pasta.
-5. Suba de novo.
+2. Envie o `alvo.jpg` desta pasta.
+3. *Start*, espere de 1 a 3 minutos, e *Download*.
+4. Renomeie o arquivo baixado para **`alvo.mind`** e suba aqui.
 
-Sem esse arquivo a página funciona normalmente — só o botão
-"ver sobre o quadro" é que não encontra o alvo.
+Sem esse arquivo a pagina funciona normalmente — so o botao
+"ver sobre o quadro" avisa que o reconhecimento ainda nao foi publicado.
 
 ## Detalhes
 
-- A animação usa 1441 vetores girantes (K = 720), os mesmos do quadro impresso.
-- A letra vem da curva exata do glifo Ψ do Times New Roman, não de uma imagem.
-- A página é um arquivo só e funciona sem internet depois de carregada,
-  exceto o modo câmera, que busca duas bibliotecas externas.
+- A animacao usa 1441 vetores girantes (K = 720), os mesmos do quadro.
+- A letra vem da curva exata do glifo Psi do Times New Roman, nao de imagem.
+- A animacao em tela funciona sem internet depois de carregada.

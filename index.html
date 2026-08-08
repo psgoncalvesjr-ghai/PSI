@@ -6,6 +6,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#ffffff">
 <title>Ψ — Perfume e Sabor do Eu</title>
+<!-- O MindAR e o three.js sao modulos ES e ficam neste mesmo repositorio,
+     nao em servidor de terceiros: o presente nao depende de nada externo
+     continuar existindo. O mapa abaixo resolve os nomes que eles importam. -->
+<script type="importmap">
+{ "imports": {
+    "three": "./three.module.js",
+    "three/addons/": "./jsm/"
+} }
+</script>
 <style>
   :root{ --roxo:#8B65CE; --fio:#C9C9C9; --tinta:#111; }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -154,9 +163,10 @@ function pintaAr(){
 async function ligaAr(){
   aviso.textContent = 'preparando a câmera…'; aviso.classList.add('on');
   try{
-    await carrega('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
-    await carrega('https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js');
-    const mind = new window.MINDAR.IMAGE.MindARThree({
+    // ambos sao modulos ES; carregar como <script> comum nao funciona
+    const THREE = await import('three');
+    const { MindARThree } = await import('./mindar-image-three.prod.js');
+    const mind = new MindARThree({
       container: el('ar'), imageTargetSrc: './alvo.mind',
       uiScanning: 'no', uiLoading: 'no', uiError: 'no',
     });
@@ -181,18 +191,13 @@ async function ligaAr(){
     setTimeout(() => { if (!visto) aviso.textContent =
       'não estou reconhecendo o quadro. Tente mais luz, sem reflexo, e enquadre o quadro inteiro.'; }, 12000);
   }catch(e){
-    aviso.textContent = 'não consegui abrir a câmera aqui. A animação continua na tela.';
+    const faltaAlvo = /alvo\.mind|404|fetch/i.test(String(e && (e.message || e)));
+    aviso.textContent = faltaAlvo
+      ? 'o reconhecimento do quadro ainda não foi publicado. A animação continua na tela.'
+      : 'não consegui abrir a câmera. A animação continua na tela.';
     setTimeout(() => aviso.classList.remove('on'), 5000);
     console.error(e);
   }
-}
-
-function carrega(src){
-  return new Promise((ok, erro) => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = ok; s.onerror = () => erro(new Error('falhou: ' + src));
-    document.head.appendChild(s);
-  });
 }
 
 // ------------------------------------------------------------------- laco ---
