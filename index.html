@@ -44,6 +44,8 @@
           background:rgba(17,17,17,.86); color:#fff; padding:10px 16px; border-radius:10px;
           font-size:.8rem; max-width:86vw; text-align:center; display:none; line-height:1.45; }
   .aviso.on{ display:block; }
+  .so-ar{ display:none !important; }
+  body.modo-ar .so-ar{ display:flex !important; }
   #diag{ position:fixed; left:8px; right:8px; top:8px; z-index:30; display:none;
          background:rgba(0,0,0,.86); color:#9f9; font:11px/1.45 ui-monospace,monospace;
          padding:10px 12px; border-radius:9px; white-space:pre-wrap; max-height:56vh;
@@ -65,6 +67,9 @@
   <div class="ctrl"><span>velocidade</span>
     <input id="v" type="range" min="1" max="100" value="34"><span class="val" id="vv"></span></div>
   <div class="ctrl"><label><input id="mostrar" type="checkbox" checked> mecanismo</label></div>
+  <div class="ctrl so-ar"><span>estabilidade</span>
+    <input id="suave" type="range" min="3" max="100" value="15"><span class="val" id="sv"></span></div>
+  <div class="ctrl so-ar"><label><input id="apagar" type="checkbox"> apagar a letra</label></div>
   <div class="ctrl"><button id="zero">reiniciar</button>
     <button id="btnAr" class="destaque">ver sobre o quadro</button>
     <button id="btnDiag" style="display:none">diagnóstico</button></div>
@@ -94,7 +99,7 @@ function calcula(n){
   return pts;
 }
 
-function pinta(g, larg, alt, cx, cy, esc, fundo){
+function pinta(g, larg, alt, cx, cy, esc, fundo, fatorTraco){
   const n = +sN.value, ver = chk.checked;
   // com cor, pinta o fundo; sem cor, quem chamou ja preparou a tela
   // (no modo sobre o quadro isso importa: o branco que apaga a letra
@@ -124,7 +129,7 @@ function pinta(g, larg, alt, cx, cy, esc, fundo){
   if (traco.length > 26000) traco.splice(0, 2);
 
   g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--roxo').trim();
-  g.lineWidth = Math.max(2, esc * 0.011);
+  g.lineWidth = Math.max(1.5, esc * (fatorTraco || 0.011));
   g.lineJoin = g.lineCap = 'round';
   g.beginPath();
   for (let i = 0; i < traco.length; i += 2){
@@ -162,11 +167,16 @@ const gAr = cvAr.getContext('2d');
 function pintaAr(){
   const L = cvAr.width, A = cvAr.height;
   gAr.clearRect(0, 0, L, A);
-  const m = ALVO.folga * L;
-  gAr.fillStyle = '#fff';
-  gAr.fillRect(ALVO.x0 * L - m, ALVO.y0 * A - m,
-               (ALVO.x1 - ALVO.x0) * L + 2*m, (ALVO.y1 - ALVO.y0) * A + 2*m);
-  pinta(gAr, L, A, ALVO.cx * L, ALVO.cy * A, ALVO.altura * A / 1.0, null);
+  if (el('apagar').checked){
+    // opcional: apaga a letra impressa antes de redesenhar. Fica visivel
+    // como uma mancha branca, porque o papel sob luz quente nao e branco.
+    const m = ALVO.folga * L;
+    gAr.fillStyle = '#fff';
+    gAr.fillRect(ALVO.x0 * L - m, ALVO.y0 * A - m,
+                 (ALVO.x1 - ALVO.x0) * L + 2*m, (ALVO.y1 - ALVO.y0) * A + 2*m);
+  }
+  // 0.0075 aproxima a espessura do traco impresso, para o desenho cobri-lo
+  pinta(gAr, L, A, ALVO.cx * L, ALVO.cy * A, ALVO.altura * A, null, 0.0075);
 }
 
 async function ligaAr(){
@@ -191,14 +201,24 @@ async function ligaAr(){
     const ancora = mind.addAnchor(0);
     const tex = new THREE.CanvasTexture(cvAr);
     tex.colorSpace = THREE.SRGBColorSpace;
+    // O plano NAO entra na ancora: em vez de seguir a pose crua (que treme),
+    // ele copia a pose suavizada quadro a quadro.
     const plano = new THREE.Mesh(
       new THREE.PlaneGeometry(1, ALVO.pagina_alt / ALVO.pagina_larg),
       new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
-    ancora.group.add(plano);
+    plano.matrixAutoUpdate = false;
+    plano.visible = false;
+    scene.add(plano);
+
+    const P = new THREE.Vector3(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
+    const p2 = new THREE.Vector3(), q2 = new THREE.Quaternion(), s2 = new THREE.Vector3();
+    let temPose = false;
 
     let visto = false;
-    ancora.onTargetFound = () => { visto = true; aviso.classList.remove('on'); };
-    ancora.onTargetLost  = () => { aviso.textContent = 'aponte para o quadro'; aviso.classList.add('on'); };
+    ancora.onTargetFound = () => { visto = true; plano.visible = true; temPose = false;
+                                   aviso.classList.remove('on'); };
+    ancora.onTargetLost  = () => { plano.visible = false;
+                                   aviso.textContent = 'aponte para o quadro'; aviso.classList.add('on'); };
 
     await mind.start();
 
@@ -210,9 +230,17 @@ async function ligaAr(){
     modoAr = true; el('btnAr').textContent = 'voltar';
     el('btnDiag').style.display = '';
     aviso.textContent = 'aponte para o quadro';
-    renderer.setAnimationLoop(() => { tex.needsUpdate = true; renderer.render(scene, camera); });
-
-    setTimeout(diagnostica, 1500);
+    renderer.setAnimationLoop(() => {
+      tex.needsUpdate = true;
+      if (plano.visible){
+        ancora.group.matrix.decompose(p2, q2, s2);
+        const a = +el('suave').value / 100;      // 1 = sem suavizar
+        if (!temPose){ P.copy(p2); Q.copy(q2); S.copy(s2); temPose = true; }
+        else { P.lerp(p2, a); Q.slerp(q2, a); S.lerp(s2, a); }
+        plano.matrix.compose(P, Q, S);
+      }
+      renderer.render(scene, camera);
+    });
 
     setTimeout(() => {
       if (visto) return;
@@ -284,12 +312,14 @@ function laco(agora){
   const dt = ultimo ? Math.min((agora - ultimo) / 1000, 0.05) : 0;
   ultimo = agora;
   if (modoAr) pintaAr();
-  else pinta(ctx, W, H, CX, CY, ESC, '#fff');
+  else pinta(ctx, W, H, CX, CY, ESC, '#fff', 0.011);
   if (rodando){ t += dt * (+sV.value / 100) * 0.22; if (t >= 1) t -= 1; }
   requestAnimationFrame(laco);
 }
 
-function sincroniza(){ el('nv').textContent = sN.value; el('vv').textContent = sV.value; }
+function sincroniza(){ el('nv').textContent = sN.value; el('vv').textContent = sV.value;
+  el('sv').textContent = el('suave').value; }
+el('suave').addEventListener('input', sincroniza);
 [sN, sV].forEach(s => s.addEventListener('input', () => {
   sincroniza(); if (s === sN) traco.length = 0;
 }));
