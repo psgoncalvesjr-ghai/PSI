@@ -166,6 +166,14 @@ async function ligaAr(){
     // ambos sao modulos ES; carregar como <script> comum nao funciona
     const THREE = await import('three');
     const { MindARThree } = await import('./mindar-image-three.prod.js');
+
+    // O container PRECISA estar visivel antes de iniciar: o MindAR mede o
+    // espaco disponivel para dimensionar o video e a cena. Escondido, ele
+    // mede zero — a camera liga e a imagem nao aparece em lugar nenhum.
+    el('ar').classList.add('on');
+    document.body.classList.add('modo-ar');
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
     const mind = new MindARThree({
       container: el('ar'), imageTargetSrc: './alvo.mind',
       uiScanning: 'no', uiLoading: 'no', uiError: 'no',
@@ -184,12 +192,25 @@ async function ligaAr(){
     ancora.onTargetLost  = () => { aviso.textContent = 'aponte para o quadro'; aviso.classList.add('on'); };
 
     await mind.start();
-    el('ar').classList.add('on'); document.body.classList.add('modo-ar');
+
+    // no iOS o video so aparece embutido na pagina com playsinline
+    const v = el('ar').querySelector('video');
+    if (v){ v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.muted = true;
+            v.play().catch(() => {}); }
+
     modoAr = true; el('btnAr').textContent = 'voltar';
     aviso.textContent = 'aponte para o quadro';
     renderer.setAnimationLoop(() => { tex.needsUpdate = true; renderer.render(scene, camera); });
-    setTimeout(() => { if (!visto) aviso.textContent =
-      'não estou reconhecendo o quadro. Tente mais luz, sem reflexo, e enquadre o quadro inteiro.'; }, 12000);
+
+    setTimeout(() => {
+      if (visto) return;
+      const c = el('ar');
+      aviso.innerHTML = 'não estou reconhecendo o quadro.<br>'
+        + 'mais luz, sem reflexo, e o quadro inteiro no enquadramento.'
+        + '<br><small style="opacity:.7">vídeo ' + (v ? v.videoWidth + '×' + v.videoHeight : 'ausente')
+        + ' · área ' + c.clientWidth + '×' + c.clientHeight + '</small>';
+      aviso.classList.add('on');
+    }, 12000);
   }catch(e){
     const faltaAlvo = /alvo\.mind|404|fetch/i.test(String(e && (e.message || e)));
     aviso.textContent = faltaAlvo
