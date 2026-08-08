@@ -44,12 +44,20 @@
           background:rgba(17,17,17,.86); color:#fff; padding:10px 16px; border-radius:10px;
           font-size:.8rem; max-width:86vw; text-align:center; display:none; line-height:1.45; }
   .aviso.on{ display:block; }
+  #diag{ position:fixed; left:8px; right:8px; top:8px; z-index:30; display:none;
+         background:rgba(0,0,0,.86); color:#9f9; font:11px/1.45 ui-monospace,monospace;
+         padding:10px 12px; border-radius:9px; white-space:pre-wrap; max-height:56vh;
+         overflow:auto; }
+  #diag.on{ display:block; }
+  #diag b{ color:#fff; }
+  #diag button{ font-size:11px; padding:4px 9px; margin-top:8px; margin-right:6px; }
 </style>
 </head>
 <body>
 <canvas id="palco"></canvas>
 <div id="ar"></div>
 <div class="aviso" id="aviso"></div>
+<div id="diag"></div>
 
 <div class="barra">
   <div class="ctrl"><span>círculos</span>
@@ -58,7 +66,8 @@
     <input id="v" type="range" min="1" max="100" value="34"><span class="val" id="vv"></span></div>
   <div class="ctrl"><label><input id="mostrar" type="checkbox" checked> mecanismo</label></div>
   <div class="ctrl"><button id="zero">reiniciar</button>
-    <button id="btnAr" class="destaque">ver sobre o quadro</button></div>
+    <button id="btnAr" class="destaque">ver sobre o quadro</button>
+    <button id="btnDiag" style="display:none">diagnóstico</button></div>
 </div>
 
 <script>
@@ -199,8 +208,11 @@ async function ligaAr(){
             v.play().catch(() => {}); }
 
     modoAr = true; el('btnAr').textContent = 'voltar';
+    el('btnDiag').style.display = '';
     aviso.textContent = 'aponte para o quadro';
     renderer.setAnimationLoop(() => { tex.needsUpdate = true; renderer.render(scene, camera); });
+
+    setTimeout(diagnostica, 1500);
 
     setTimeout(() => {
       if (visto) return;
@@ -221,6 +233,52 @@ async function ligaAr(){
   }
 }
 
+function diagnostica(){
+  const c = el('ar');
+  const v = c.querySelector('video');
+  const telas = [...c.querySelectorAll('canvas')];
+  const cs = o => { const g = getComputedStyle(o);
+    return `${g.display}/${g.visibility} pos:${g.position} z:${g.zIndex} ` +
+           `${Math.round(o.getBoundingClientRect().width)}x${Math.round(o.getBoundingClientRect().height)} ` +
+           `top:${g.top} left:${g.left} of:${g.objectFit||'-'} op:${g.opacity}`; };
+  let txt = `<b>area #ar</b>  ${c.clientWidth}x${c.clientHeight}  ${cs(c)}
+`;
+  txt += `<b>filhos</b>  ${[...c.children].map(x=>x.tagName.toLowerCase()).join(', ') || 'nenhum'}
+
+`;
+  if (v){
+    const st = v.srcObject, tr = st && st.getVideoTracks ? st.getVideoTracks()[0] : null;
+    txt += `<b>video</b>  ${v.videoWidth}x${v.videoHeight}  readyState:${v.readyState} paused:${v.paused}
+`;
+    txt += `        ${cs(v)}
+`;
+    txt += `        playsinline:${v.hasAttribute('playsinline')} srcObject:${!!st}`;
+    txt += ` trilha:${tr ? tr.readyState + '/' + (tr.enabled?'on':'off') : 'nenhuma'}
+
+`;
+  } else txt += `<b>video</b>  NAO EXISTE
+
+`;
+  txt += `<b>canvas no #ar</b>  ${telas.length}
+`;
+  telas.forEach((t,i) => { txt += `  [${i}] ${t.width}x${t.height}  ${cs(t)}
+`; });
+  el('diag').innerHTML = txt +
+    '<button id="dForca">forçar tamanho</button>' +
+    '<button id="dFecha">fechar</button>';
+  el('diag').classList.add('on');
+  el('dFecha').onclick = () => el('diag').classList.remove('on');
+  el('dForca').onclick = () => {
+    const e = document.createElement('style');
+    e.textContent = '#ar video,#ar canvas{position:absolute!important;top:0!important;' +
+                    'left:0!important;width:100%!important;height:100%!important;' +
+                    'object-fit:cover!important;visibility:visible!important;opacity:1!important;}';
+    document.head.appendChild(e);
+    el('diag').classList.remove('on');
+    aviso.textContent = 'tamanho forçado — a imagem apareceu?'; aviso.classList.add('on');
+  };
+}
+
 // ------------------------------------------------------------------- laco ---
 function laco(agora){
   const dt = ultimo ? Math.min((agora - ultimo) / 1000, 0.05) : 0;
@@ -236,6 +294,7 @@ function sincroniza(){ el('nv').textContent = sN.value; el('vv').textContent = s
   sincroniza(); if (s === sN) traco.length = 0;
 }));
 el('zero').onclick = () => { t = 0; traco.length = 0; };
+el('btnDiag').onclick = diagnostica;
 el('btnAr').onclick = () => {
   if (!modoAr) ligaAr();
   else location.reload();
